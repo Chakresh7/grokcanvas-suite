@@ -10,6 +10,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  diagramType?: string;
 }
 
 const SAMPLE_DIAGRAMS: Record<string, string> = {
@@ -100,6 +101,29 @@ const SAMPLE_DIAGRAMS: Record<string, string> = {
         int product_id FK
         int quantity
     }`,
+  c4: `graph TB
+    subgraph "Internet Banking System"
+        A[Single-Page Application] --> B[API Application]
+        B --> C[(Database)]
+        B --> D[Email System]
+    end
+    E[Customer] --> A
+    B --> F[Mainframe Banking]
+    D --> E`,
+  gantt: `gantt
+    title Software Project Timeline
+    dateFormat  YYYY-MM-DD
+    section Planning
+    Requirements gathering    :a1, 2024-01-01, 14d
+    System design             :a2, after a1, 10d
+    section Development
+    Frontend development      :b1, after a2, 30d
+    Backend development       :b2, after a2, 35d
+    section Testing
+    Integration testing       :c1, after b2, 14d
+    UAT                       :c2, after c1, 10d
+    section Deployment
+    Production release        :d1, after c2, 5d`,
 };
 
 function detectDiagramType(prompt: string): string {
@@ -108,8 +132,24 @@ function detectDiagramType(prompt: string): string {
   if (lower.includes("architecture") || lower.includes("microservice")) return "architecture";
   if (lower.includes("mindmap") || lower.includes("mind map") || lower.includes("planning")) return "mindmap";
   if (lower.includes("workflow") || lower.includes("ci/cd") || lower.includes("pipeline")) return "workflow";
-  if (lower.includes("er ") || lower.includes("entity") || lower.includes("database") || lower.includes("e-commerce")) return "er";
+  if (lower.includes("er ") || lower.includes("entity") || lower.includes("e-commerce")) return "er";
+  if (lower.includes("c4") || lower.includes("context diagram") || lower.includes("banking")) return "c4";
+  if (lower.includes("gantt") || lower.includes("timeline") || lower.includes("3-month") || lower.includes("project")) return "gantt";
   return "flowchart";
+}
+
+function formatDiagramType(type: string): string {
+  const map: Record<string, string> = {
+    flowchart: "Flowchart",
+    architecture: "Architecture Diagram",
+    mindmap: "Mind Map",
+    sequence: "Sequence Diagram",
+    workflow: "Workflow Diagram",
+    er: "ER Diagram",
+    c4: "C4 Model",
+    gantt: "Gantt Chart",
+  };
+  return map[type] || "Diagram";
 }
 
 const AppPage = () => {
@@ -127,23 +167,23 @@ const AppPage = () => {
     setMessages((prev) => [...prev, userMsg]);
     setIsGenerating(true);
 
-    // Simulate AI generation
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, 1400));
 
     const diagramType = detectDiagramType(prompt);
     const code = SAMPLE_DIAGRAMS[diagramType] || SAMPLE_DIAGRAMS.flowchart;
     setMermaidCode(code);
 
+    const formatted = formatDiagramType(diagramType);
     const assistantMsg: Message = {
       id: (Date.now() + 1).toString(),
       role: "assistant",
-      content: `Here's your ${diagramType} diagram! I've generated it based on your description. You can edit the code directly or ask me to refine it.`,
+      content: `Here's your ${formatted}! I've generated it based on your description. You can switch to the Code tab to edit the Mermaid syntax directly, or ask me to refine it.`,
       timestamp: new Date(),
+      diagramType: formatted,
     };
     setMessages((prev) => [...prev, assistantMsg]);
     setIsGenerating(false);
 
-    // Save to localStorage
     const saved = JSON.parse(localStorage.getItem("grokcanvas_diagrams") || "[]");
     saved.push({ prompt, code, type: diagramType, date: new Date().toISOString() });
     localStorage.setItem("grokcanvas_diagrams", JSON.stringify(saved));
@@ -155,34 +195,26 @@ const AppPage = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
+        transition={{ duration: 0.35 }}
         className="flex-1 min-h-0"
       >
-        {/* Desktop: side by side */}
+        {/* Desktop */}
         <div className="hidden md:block h-full">
           <ResizablePanelGroup direction="horizontal" className="h-full">
-            <ResizablePanel defaultSize={42} minSize={30} maxSize={60}>
-              <PromptPanel
-                onGenerate={handleGenerate}
-                messages={messages}
-                isGenerating={isGenerating}
-              />
+            <ResizablePanel defaultSize={40} minSize={28} maxSize={55}>
+              <PromptPanel onGenerate={handleGenerate} messages={messages} isGenerating={isGenerating} />
             </ResizablePanel>
-            <ResizableHandle className="w-px bg-border hover:bg-brand/50 transition-colors data-[resize-handle-active]:bg-brand" />
-            <ResizablePanel defaultSize={58} minSize={35}>
+            <ResizableHandle className="w-[3px] bg-border hover:bg-brand/50 active:bg-brand transition-colors duration-150" />
+            <ResizablePanel defaultSize={60} minSize={40}>
               <CanvasPanel mermaidCode={mermaidCode} onCodeChange={setMermaidCode} />
             </ResizablePanel>
           </ResizablePanelGroup>
         </div>
 
-        {/* Mobile: stacked */}
+        {/* Mobile */}
         <div className="md:hidden h-full flex flex-col">
           <div className="flex-1 min-h-0 overflow-hidden" style={{ maxHeight: "50%" }}>
-            <PromptPanel
-              onGenerate={handleGenerate}
-              messages={messages}
-              isGenerating={isGenerating}
-            />
+            <PromptPanel onGenerate={handleGenerate} messages={messages} isGenerating={isGenerating} />
           </div>
           <div className="h-px bg-border" />
           <div className="flex-1 min-h-0">

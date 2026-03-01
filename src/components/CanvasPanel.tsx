@@ -1,20 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Download,
-  Undo2,
-  Redo2,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Sun,
-  Copy,
-  FileImage,
-  FileCode,
-  FileText,
-  LayoutGrid,
-  ChevronDown,
-  Sparkles,
+  Download, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2,
+  Copy, FileImage, FileCode, FileText, LayoutGrid,
+  ChevronDown, Sparkles, Eye, Code2, Monitor, Palette,
+  Command
 } from "lucide-react";
 import mermaid from "mermaid";
 
@@ -42,15 +32,14 @@ mermaid.initialize({
     edgeLabelBackground: "#1a1a1a",
     nodeTextColor: "#ffffff",
   },
-  flowchart: {
-    htmlLabels: true,
-    curve: "basis",
-  },
+  flowchart: { htmlLabels: true, curve: "basis" },
 });
+
+type TabType = "visual" | "code" | "preview";
 
 const CanvasPanel = ({ mermaidCode, onCodeChange }: CanvasPanelProps) => {
   const [showExport, setShowExport] = useState(false);
-  const [showCode, setShowCode] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("visual");
   const [svgOutput, setSvgOutput] = useState("");
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -109,139 +98,196 @@ const CanvasPanel = ({ mermaidCode, onCodeChange }: CanvasPanelProps) => {
     }
   };
 
+  const tabs: { id: TabType; label: string; icon: typeof Eye }[] = [
+    { id: "visual", label: "VISUAL", icon: Eye },
+    { id: "code", label: "CODE", icon: Code2 },
+    { id: "preview", label: "PREVIEW", icon: Monitor },
+  ];
+
   return (
     <div className="flex flex-col h-full bg-card relative">
-      {/* Canvas Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setShowCode(!showCode)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-              showCode
-                ? "bg-brand text-brand-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-            }`}
-          >
-            <FileCode className="w-3.5 h-3.5" />
-            CODE
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
-            <LayoutGrid className="w-3.5 h-3.5" />
-            AUTO-LAYOUT
-          </button>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+        {/* Tabs */}
+        <div className="flex items-center gap-0.5 bg-secondary rounded-xl p-0.5">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-bold tracking-widest uppercase rounded-lg transition-all duration-200 ${
+                activeTab === tab.id
+                  ? "bg-surface-overlay text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className="relative">
-          <button
-            onClick={() => setShowExport(!showExport)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all"
-          >
-            <Download className="w-3.5 h-3.5" />
-            EXPORT
-            <ChevronDown className="w-3 h-3" />
+        <div className="flex items-center gap-1">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Auto-Layout</span>
           </button>
-          {showExport && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="absolute right-0 top-full mt-1 w-48 bg-surface-raised border border-border rounded-xl shadow-2xl z-50 overflow-hidden"
+          <button className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+            <Palette className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline">Theme</span>
+          </button>
+
+          {/* Export */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExport(!showExport)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all"
             >
-              <button onClick={() => handleExport("png")} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-secondary-foreground hover:bg-secondary transition-colors">
-                <FileImage className="w-3.5 h-3.5 text-muted-foreground" /> Export as PNG
-              </button>
-              <button onClick={() => handleExport("svg")} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-secondary-foreground hover:bg-secondary transition-colors">
-                <FileText className="w-3.5 h-3.5 text-muted-foreground" /> Export as SVG
-              </button>
-              <button onClick={() => handleExport("code")} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-secondary-foreground hover:bg-secondary transition-colors">
-                <Copy className="w-3.5 h-3.5 text-muted-foreground" /> Copy Mermaid Code
-              </button>
-            </motion.div>
-          )}
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Export</span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            <AnimatePresence>
+              {showExport && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-full mt-1.5 w-52 bg-surface-raised border border-border rounded-xl shadow-2xl z-50 overflow-hidden py-1"
+                >
+                  {[
+                    { type: "png", icon: FileImage, label: "Export as PNG" },
+                    { type: "svg", icon: FileText, label: "Export as SVG" },
+                    { type: "code", icon: Copy, label: "Copy Mermaid Code" },
+                  ].map((item) => (
+                    <button
+                      key={item.type}
+                      onClick={() => handleExport(item.type)}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-secondary-foreground hover:bg-secondary transition-colors"
+                    >
+                      <item.icon className="w-3.5 h-3.5 text-muted-foreground" />
+                      {item.label}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
       {/* Canvas Area */}
       <div className="flex-1 relative overflow-hidden min-h-0">
-        {/* Grid background */}
-        <div className="absolute inset-0 surface-grid opacity-50" />
+        <div className="absolute inset-0 surface-grid opacity-40" />
 
         {mermaidCode ? (
-          <div className="relative h-full flex flex-col">
-            {showCode ? (
+          <AnimatePresence mode="wait">
+            {activeTab === "code" ? (
               <motion.div
+                key="code"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="h-full p-4"
+                exit={{ opacity: 0 }}
+                className="relative h-full p-4 z-10"
               >
                 <textarea
                   value={mermaidCode}
                   onChange={(e) => onCodeChange(e.target.value)}
-                  className="w-full h-full bg-background border border-border rounded-xl p-4 text-sm font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-brand/30"
+                  className="w-full h-full bg-background border border-border rounded-xl p-4 text-sm font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-brand/30 leading-relaxed"
                   spellCheck={false}
                 />
               </motion.div>
             ) : (
-              <div
-                className="flex-1 overflow-auto flex items-center justify-center p-8"
+              <motion.div
+                key="visual"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="relative h-full overflow-auto flex items-center justify-center p-8 z-10"
                 style={{ transform: `scale(${zoom})`, transformOrigin: "center center" }}
               >
                 {error ? (
-                  <div className="text-destructive text-sm font-medium">{error}</div>
+                  <div className="text-destructive text-sm font-medium bg-destructive/10 px-4 py-2 rounded-lg">
+                    {error}
+                  </div>
                 ) : (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
+                    initial={{ opacity: 0, scale: 0.97 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3 }}
+                    transition={{ duration: 0.35 }}
                     ref={renderRef}
                     dangerouslySetInnerHTML={{ __html: svgOutput }}
                     className="[&_svg]:max-w-full [&_svg]:h-auto"
                   />
                 )}
-              </div>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         ) : (
           /* Empty State */
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
               className="text-center"
             >
-              <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.06, 1],
+                  rotate: [0, 3, -3, 0],
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="w-24 h-24 rounded-3xl bg-secondary/80 border border-border flex items-center justify-center mx-auto mb-8"
+              >
+                <Sparkles className="w-10 h-10 text-brand/60" />
+              </motion.div>
+              <h3 className="text-2xl font-extrabold text-foreground mb-3">
                 Your diagram appears here
               </h3>
-              <p className="text-sm text-muted-foreground max-w-xs">
+              <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-6">
                 Describe what you want to create and hit Generate to see it rendered live
               </p>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-secondary/60 rounded-xl">
+                <Command className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground font-medium">
+                  Press <kbd className="px-1.5 py-0.5 bg-surface-overlay rounded text-[10px] font-mono font-bold text-foreground mx-0.5">⌘</kbd> + <kbd className="px-1.5 py-0.5 bg-surface-overlay rounded text-[10px] font-mono font-bold text-foreground mx-0.5">⏎</kbd> to generate
+                </span>
+              </div>
             </motion.div>
           </div>
         )}
       </div>
 
-      {/* Floating Zoom Controls */}
-      {mermaidCode && !showCode && (
+      {/* Floating Toolbar — Undo/Redo/Zoom */}
+      {mermaidCode && activeTab !== "code" && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="absolute bottom-4 right-4 flex items-center gap-1 bg-surface-raised border border-border rounded-xl p-1 shadow-lg"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-surface-raised/90 backdrop-blur-md border border-border rounded-2xl p-1 shadow-xl z-20"
         >
-          <button onClick={() => setZoom(Math.max(0.25, zoom - 0.15))} className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+          <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-all" title="Undo">
+            <Undo2 className="w-4 h-4" />
+          </button>
+          <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-all" title="Redo">
+            <Redo2 className="w-4 h-4" />
+          </button>
+          <div className="w-px h-5 bg-border mx-1" />
+          <button onClick={() => setZoom(Math.max(0.25, zoom - 0.15))} className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-all" title="Zoom out">
             <ZoomOut className="w-4 h-4" />
           </button>
-          <span className="text-xs font-semibold text-muted-foreground w-12 text-center">
+          <span className="text-[11px] font-bold text-muted-foreground w-10 text-center tabular-nums">
             {Math.round(zoom * 100)}%
           </span>
-          <button onClick={() => setZoom(Math.min(3, zoom + 0.15))} className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+          <button onClick={() => setZoom(Math.min(3, zoom + 0.15))} className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-all" title="Zoom in">
             <ZoomIn className="w-4 h-4" />
           </button>
-          <div className="w-px h-5 bg-border mx-0.5" />
-          <button onClick={() => setZoom(1)} className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-all">
+          <div className="w-px h-5 bg-border mx-1" />
+          <button onClick={() => setZoom(1)} className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-all" title="Reset zoom">
             <Maximize2 className="w-4 h-4" />
+          </button>
+          <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-all" title="Colors">
+            <Palette className="w-4 h-4" />
           </button>
         </motion.div>
       )}
